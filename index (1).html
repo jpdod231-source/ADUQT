@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="gu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ brand }} - AI Search</title>
+<meta name="description" content="{{ brand }}: koi pan sawal puchho, turant jawab meLvo.">
+<style>
+  :root { --bg:#fff; --text:#202124; --muted:#5f6368; --line:#dfe1e5; --accent:#1a73e8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#202124; --text:#e8eaed; --muted:#9aa0a6; --line:#5f6368; --accent:#8ab4f8; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
+  main { flex:1; display:flex; flex-direction:column; align-items:center; padding:0 16px; }
+  main.home { justify-content:center; }
+  main.results { justify-content:flex-start; padding-top:32px; }
+  .brand { font-size:clamp(40px, 10vw, 72px); font-weight:700; letter-spacing:-1px; margin-bottom:24px; color:var(--accent); }
+  main.results .brand { font-size:28px; margin-bottom:16px; }
+  form { width:100%; max-width:640px; display:flex; }
+  input[type=text] { flex:1; font-size:18px; padding:14px 22px; border:1px solid var(--line);
+         border-radius:28px 0 0 28px; background:var(--bg); color:var(--text); outline:none; }
+  input[type=text]:focus { box-shadow:0 1px 6px rgba(32,33,36,.28); }
+  button { font-size:16px; padding:0 24px; border:1px solid var(--accent); background:var(--accent);
+           color:#fff; border-radius:0 28px 28px 0; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  #output { width:100%; max-width:640px; margin-top:28px; }
+  #answer { line-height:1.7; font-size:17px; white-space:pre-wrap; }
+  .sources { margin-top:22px; border-top:1px solid var(--line); padding-top:14px; }
+  .sources h3 { font-size:14px; color:var(--muted); margin:0 0 8px; font-weight:600; }
+  .sources a { display:block; color:var(--accent); text-decoration:none; font-size:15px; padding:4px 0;
+               overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sources a:hover { text-decoration:underline; }
+  .error { color:#d93025; }
+  .loading { color:var(--muted); }
+  footer { text-align:center; color:var(--muted); font-size:13px; padding:16px; }
+</style>
+</head>
+<body>
+<main class="home" id="main">
+  <div class="brand">{{ brand }}</div>
+  <form id="form">
+    <input type="text" id="q" placeholder="Koi pan sawal puchho..." maxlength="500" autocomplete="off" autofocus>
+    <button type="submit" id="btn">Shodho</button>
+  </form>
+  <div id="output" hidden>
+    <div id="answer"></div>
+    <div class="sources" id="sources" hidden><h3>Strotos</h3><div id="srclist"></div></div>
+  </div>
+</main>
+<footer>AI thi jawab apayela chhe. Mahatvani mahiti chakasi leva.</footer>
+
+<script>
+const form = document.getElementById("form");
+const q = document.getElementById("q");
+const btn = document.getElementById("btn");
+const out = document.getElementById("output");
+const answer = document.getElementById("answer");
+const srcBox = document.getElementById("sources");
+const srcList = document.getElementById("srclist");
+const main = document.getElementById("main");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = q.value.trim();
+  if (!question) return;
+
+  main.className = "results";
+  out.hidden = false;
+  srcBox.hidden = true;
+  answer.className = "loading";
+  answer.textContent = "Shodhi rahyo chhu...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Kaik gadbad thai.");
+
+    answer.className = "";
+    answer.textContent = data.answer;
+
+    srcList.innerHTML = "";
+    (data.sources || []).forEach(s => {
+      const a = document.createElement("a");
+      a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.textContent = s.title || s.url;
+      srcList.appendChild(a);
+    });
+    srcBox.hidden = !(data.sources && data.sources.length);
+  } catch (err) {
+    answer.className = "error";
+    answer.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
