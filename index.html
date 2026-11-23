@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ brand }} - AI Search</title>
-<meta name="description" content="{{ brand }}: koi pan sawal puchho, turant jawab meLvo.">
+<meta name="description" content="{{ brand }}: koi pan sawal puchho, turant jawab melvo.">
 <style>
   :root { --bg:#fff; --text:#202124; --muted:#5f6368; --line:#dfe1e5; --accent:#1a73e8; }
   @media (prefers-color-scheme: dark) {
@@ -16,11 +16,11 @@
   main { flex:1; display:flex; flex-direction:column; align-items:center; padding:0 16px; }
   main.home { justify-content:center; }
   main.results { justify-content:flex-start; padding-top:32px; }
-  .brand { font-size:clamp(40px, 10vw, 72px); font-weight:700; letter-spacing:-1px; margin-bottom:24px; color:var(--accent); }
+  .brand { font-size:clamp(40px, 10vw, 72px); font-weight:700; letter-spacing:-1px; margin-bottom:24px; }
   main.results .brand { font-size:28px; margin-bottom:16px; }
   form { width:100%; max-width:640px; display:flex; }
   input[type=text] { flex:1; font-size:18px; padding:14px 22px; border:1px solid var(--line);
-         border-radius:28px 0 0 28px; background:var(--bg); color:var(--text); outline:none; }
+                     border-radius:28px 0 0 28px; background:var(--bg); color:var(--text); outline:none; }
   input[type=text]:focus { box-shadow:0 1px 6px rgba(32,33,36,.28); }
   button { font-size:16px; padding:0 24px; border:1px solid var(--accent); background:var(--accent);
            color:#fff; border-radius:0 28px 28px 0; cursor:pointer; }
@@ -41,7 +41,7 @@
 <main class="home" id="main">
   <div class="brand">{{ brand }}</div>
   <form id="form">
-    <input type="text" id="q" placeholder="Koi pan sawal puchho..." maxlength="500" autocomplete="off" autofocus>
+    <input type="text" id="q" placeholder="Koi pan sawal puchho..." maxlength="500" autocomplete="off">
     <button type="submit" id="btn">Shodho</button>
   </form>
   <div id="output" hidden>
@@ -49,57 +49,79 @@
     <div class="sources" id="sources" hidden><h3>Strotos</h3><div id="srclist"></div></div>
   </div>
 </main>
-<footer>AI thi jawab apayela chhe. Mahatvani mahiti chakasi leva.</footer>
-
+<footer><span id="limit-info"></span></footer>
 <script>
-const form = document.getElementById("form");
-const q = document.getElementById("q");
-const btn = document.getElementById("btn");
-const out = document.getElementById("output");
-const answer = document.getElementById("answer");
-const srcBox = document.getElementById("sources");
-const srcList = document.getElementById("srclist");
-const main = document.getElementById("main");
+  const form = document.getElementById("form");
+  const q = document.getElementById("q");
+  const btn = document.getElementById("btn");
+  const out = document.getElementById("output");
+  const answer = document.getElementById("answer");
+  const srcBox = document.getElementById("sources");
+  const srcList = document.getElementById("srclist");
+  const main = document.getElementById("main");
+  const limitInfo = document.getElementById("limit-info");
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const question = q.value.trim();
-  if (!question) return;
-
-  main.className = "results";
-  out.hidden = false;
-  srcBox.hidden = true;
-  answer.className = "loading";
-  answer.textContent = "Shodhi rahyo chhu...";
-  btn.disabled = true;
-
-  try {
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Kaik gadbad thai.");
-
-    answer.className = "";
-    answer.textContent = data.answer;
-
-    srcList.innerHTML = "";
-    (data.sources || []).forEach(s => {
-      const a = document.createElement("a");
-      a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer";
-      a.textContent = s.title || s.url;
-      srcList.appendChild(a);
-    });
-    srcBox.hidden = !(data.sources && data.sources.length);
-  } catch (err) {
-    answer.className = "error";
-    answer.textContent = err.message;
-  } finally {
-    btn.disabled = false;
+  const MAX_FREE = 5;
+  function updateCounter() {
+    const used = parseInt(localStorage.getItem("aduqt_count") || "0", 10);
+    const left = Math.max(0, MAX_FREE - used);
+    limitInfo.textContent = "Mafat sawalo baki: " + left + " / " + MAX_FREE;
   }
-});
+  updateCounter();
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = q.value.trim();
+    if (!question) return;
+
+    let used = parseInt(localStorage.getItem("aduqt_count") || "0", 10);
+    if (used >= MAX_FREE) {
+      main.className = "results";
+      out.hidden = false;
+      srcBox.hidden = true;
+      answer.className = "error";
+      answer.textContent = "Tamara 5 mafat sawalo pura thai gaya chhe! Aagal upyog karva mate plan kharido.";
+      return;
+    }
+
+    main.className = "results";
+    out.hidden = false;
+    srcBox.hidden = true;
+    answer.className = "loading";
+    answer.textContent = "Shodhi rahyo chhu...";
+    btn.disabled = true;
+
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Kaik gadbad thai.");
+
+      used++;
+      localStorage.setItem("aduqt_count", used.toString());
+      updateCounter();
+
+      answer.className = "";
+      answer.textContent = data.answer;
+
+      srcList.innerHTML = "";
+      (data.sources || []).forEach(s => {
+        const a = document.createElement("a");
+        a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.textContent = s.title || s.url;
+        srcList.appendChild(a);
+      });
+      srcBox.hidden = !(data.sources && data.sources.length);
+    } catch (err) {
+      answer.className = "error";
+      answer.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
 </script>
 </body>
 </html>
